@@ -36,11 +36,11 @@ const LONG_POLL_TIMEOUT_MS = 35_000;
 const API_TIMEOUT_MS = 15_000;
 const SESSION_EXPIRED_ERRCODE = -14;
 
-const MessageType = { USER: 1, BOT: 2 } as const;
-const MessageState = { FINISH: 2 } as const;
-const MessageItemType = { TEXT: 1, IMAGE: 2 } as const;
-const UploadMediaType = { IMAGE: 1 } as const;
-const TypingStatus = { TYPING: 1, CANCEL: 2 } as const;
+const MessageType = { USER: 1, BOT: 2 };
+const MessageState = { FINISH: 2 };
+const MessageItemType = { TEXT: 1, IMAGE: 2 };
+const UploadMediaType = { IMAGE: 1 };
+const TypingStatus = { TYPING: 1, CANCEL: 2 };
 
 // ==================== 日志工具封装 ====================
 const LOG_EMOJIS = {
@@ -83,24 +83,24 @@ const logger = {
 };
 
 // ==================== 微信协议客户端 ====================
-type WeixinState = {
-  accountId?: string;
-  userId?: string;
-  baseUrl?: string;
-  token?: string;
-  getUpdatesBuf?: string;
-  contextTokens?: Record<string, string>;
+const WeixinState = {
+  accountId: undefined,
+  userId: undefined,
+  baseUrl: undefined,
+  token: undefined,
+  getUpdatesBuf: undefined,
+  contextTokens: {},
 };
 
 class WeixinProtocolClient {
-  state: WeixinState = { contextTokens: {} };
+  state = { contextTokens: {} };
   baseUrl = CONFIG.weixin.baseUrl;
   cdnBaseUrl = CONFIG.weixin.cdnBaseUrl;
   token = '';
   routeTag = CONFIG.weixin.routeTag;
   stateFile = CONFIG.weixin.stateFile;
 
-  async init(): Promise<void> {
+  async init() {
     await this.loadState();
     if (this.state.baseUrl) this.baseUrl = this.state.baseUrl;
     if (this.state.token) this.token = this.state.token;
@@ -108,17 +108,17 @@ class WeixinProtocolClient {
     logger.weixin('客户端已初始化', this.token ? '已登录' : '未登录');
   }
 
-  async loadState(): Promise<void> {
+  async loadState() {
     try {
       const raw = await fs.readFile(this.stateFile, 'utf8');
-      this.state = JSON.parse(raw) as WeixinState;
+      this.state = JSON.parse(raw);
       this.state.contextTokens ??= {};
     } catch {
       this.state = { contextTokens: {} };
     }
   }
 
-  async saveState(): Promise<void> {
+  async saveState() {
     this.state.baseUrl ||= this.baseUrl;
     this.state.token ||= this.token;
     this.state.contextTokens ??= {};
@@ -130,7 +130,7 @@ class WeixinProtocolClient {
     return { channel_version: CHANNEL_VERSION };
   }
 
-  async startQRCodeLogin(botType = CONFIG.weixin.botType): Promise<{ qrcode: string; qrcode_img_content: string }> {
+  async startQRCodeLogin(botType = CONFIG.weixin.botType) {
     const url = new URL('/ilink/bot/get_bot_qrcode', this.ensureSlash(this.baseUrl));
     url.searchParams.set('bot_type', botType);
     return this.fetchJson(url, {
@@ -139,7 +139,7 @@ class WeixinProtocolClient {
     });
   }
 
-  async getQRCodeStatus(qrcode: string): Promise<{ status: string; bot_token?: string; ilink_bot_id?: string; baseurl?: string; ilink_user_id?: string }> {
+  async getQRCodeStatus(qrcode) {
     const url = new URL('/ilink/bot/get_qrcode_status', this.ensureSlash(this.baseUrl));
     url.searchParams.set('qrcode', qrcode);
     const controller = new AbortController();
@@ -158,7 +158,7 @@ class WeixinProtocolClient {
     }
   }
 
-  async waitQRCodeLogin(qrcode: string, timeoutMs = 8 * 60_000): Promise<void> {
+  async waitQRCodeLogin(qrcode, timeoutMs = 8 * 60_000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const status = await this.getQRCodeStatus(qrcode);
@@ -198,7 +198,7 @@ class WeixinProtocolClient {
     throw new Error('wait qrcode login timeout');
   }
 
-  async pollMessages(callback: (msg: any) => Promise<void>): Promise<void> {
+  async pollMessages(callback) {
     if (!this.token) throw new Error('WEIXIN_BOT_TOKEN or saved token required');
     let timeoutMs = LONG_POLL_TIMEOUT_MS;
     for (;;) {
@@ -218,7 +218,7 @@ class WeixinProtocolClient {
       }
       for (const msg of resp.msgs ?? []) {
         if (msg.from_user_id && msg.context_token) {
-          this.state.contextTokens![msg.from_user_id] = msg.context_token;
+          this.state.contextTokens[msg.from_user_id] = msg.context_token;
           await this.saveState();
         }
         await callback(msg);
@@ -226,7 +226,7 @@ class WeixinProtocolClient {
     }
   }
 
-  async getUpdates(timeoutMs = LONG_POLL_TIMEOUT_MS): Promise<any> {
+  async getUpdates(timeoutMs = LONG_POLL_TIMEOUT_MS) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -244,7 +244,7 @@ class WeixinProtocolClient {
     }
   }
 
-  async sendText(toUserId: string, text: string): Promise<void> {
+  async sendText(toUserId, text) {
     const contextToken = this.requireContextToken(toUserId);
     await this.postJson('/ilink/bot/sendmessage', {
       msg: {
@@ -260,7 +260,7 @@ class WeixinProtocolClient {
     });
   }
 
-  async sendImage(toUserId: string, filePath: string, caption = ''): Promise<void> {
+  async sendImage(toUserId, filePath, caption = '') {
     const contextToken = this.requireContextToken(toUserId);
     const uploaded = await this.uploadImage(toUserId, filePath);
     if (caption) await this.sendText(toUserId, caption);
@@ -287,7 +287,7 @@ class WeixinProtocolClient {
     });
   }
 
-  async uploadImage(toUserId: string, filePath: string): Promise<any> {
+  async uploadImage(toUserId, filePath) {
     const plaintext = await fs.readFile(filePath);
     const aesKey = crypto.randomBytes(16);
     const filekey = crypto.randomBytes(16).toString('hex');
@@ -314,7 +314,7 @@ class WeixinProtocolClient {
     };
   }
 
-  async downloadAndDecryptMedia(encryptQueryParam: string, aesKeyBase64OrHex: string): Promise<Buffer> {
+  async downloadAndDecryptMedia(encryptQueryParam, aesKeyBase64OrHex) {
     const url = `${this.cdnBaseUrl.replace(/\/$/, '')}/download?encrypted_query_param=${encodeURIComponent(encryptQueryParam)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`cdn download ${res.status}: ${await res.text()}`);
@@ -323,15 +323,15 @@ class WeixinProtocolClient {
     return this.decryptAesEcb(ciphertext, key);
   }
 
-  requireContextToken(toUserId: string): string {
+  requireContextToken(toUserId) {
     const token = this.state.contextTokens?.[toUserId];
     if (!token) throw new Error(`missing context_token for ${toUserId}; poll first or edit state file`);
     return token;
   }
 
-  async uploadCipherToCDN(uploadParam: string, filekey: string, cipherText: Buffer): Promise<string> {
+  async uploadCipherToCDN(uploadParam, filekey, cipherText) {
     const url = `${this.cdnBaseUrl.replace(/\/$/, '')}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`;
-    let lastError: unknown;
+    let lastError;
     for (let i = 0; i < 3; i += 1) {
       const res = await fetch(url, {
         method: 'POST',
@@ -352,9 +352,9 @@ class WeixinProtocolClient {
     throw lastError instanceof Error ? lastError : new Error('cdn upload failed after 3 attempts');
   }
 
-  async postJson(endpoint: string, payload: unknown, timeoutMs = API_TIMEOUT_MS, signal?: AbortSignal): Promise<any> {
+  async postJson(endpoint, payload, timeoutMs = API_TIMEOUT_MS, signal) {
     const body = JSON.stringify(payload);
-    const headers: Record<string, string> = {
+    const headers = {
       'Content-Type': 'application/json',
       AuthorizationType: 'ilink_bot_token',
       'Content-Length': String(Buffer.byteLength(body, 'utf8')),
@@ -364,7 +364,7 @@ class WeixinProtocolClient {
     if (this.routeTag) headers.SKRouteTag = this.routeTag;
 
     const controller = signal ? undefined : new AbortController();
-    const actualSignal = signal ?? controller!.signal;
+    const actualSignal = signal ?? controller.signal;
     const t = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
     try {
       const res = await fetch(`${this.baseUrl.replace(/\/$/, '')}${endpoint}`, {
@@ -381,37 +381,37 @@ class WeixinProtocolClient {
     }
   }
 
-  async fetchJson(url: URL, init: RequestInit): Promise<any> {
+  async fetchJson(url, init) {
     const res = await fetch(url, init);
     const raw = await res.text();
     if (!res.ok) throw new Error(`${url.pathname} ${res.status}: ${raw}`);
     return JSON.parse(raw);
   }
 
-  ensureSlash(v: string): string {
+  ensureSlash(v) {
     return v.endsWith('/') ? v : `${v}/`;
   }
 
-  buildRandomWechatUIN(): string {
+  buildRandomWechatUIN() {
     const n = crypto.randomBytes(4).readUInt32BE(0);
     return Buffer.from(String(n), 'utf8').toString('base64');
   }
 
-  generateClientId(): string {
+  generateClientId() {
     return `weixin-bot-${Date.now()}-${crypto.randomUUID()}`;
   }
 
-  encryptAesEcb(plaintext: Buffer, key: Buffer): Buffer {
+  encryptAesEcb(plaintext, key) {
     const cipher = crypto.createCipheriv('aes-128-ecb', key, null);
     return Buffer.concat([cipher.update(plaintext), cipher.final()]);
   }
 
-  decryptAesEcb(ciphertext: Buffer, key: Buffer): Buffer {
+  decryptAesEcb(ciphertext, key) {
     const decipher = crypto.createDecipheriv('aes-128-ecb', key, null);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   }
 
-  decodeMediaAESKey(value: string): Buffer {
+  decodeMediaAESKey(value) {
     if (/^[0-9a-fA-F]{32}$/.test(value)) return Buffer.from(value, 'hex');
     const decoded = Buffer.from(value, 'base64');
     if (decoded.length === 16) return decoded;
@@ -421,35 +421,35 @@ class WeixinProtocolClient {
     throw new Error(`unsupported aes_key encoding; decoded length=${decoded.length}`);
   }
 
-  sleep(ms: number): Promise<void> {
+  sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
 // ==================== 全局变量 ====================
 const weixinClient = new WeixinProtocolClient();
-const transports: Record<string, { transport: StreamableHTTPServerTransport; server: McpServer }> = {};
+const transports = {};
 
 // ==================== 文件处理业务 ====================
-async function validateFile(filePath: string) {
+async function validateFile(filePath) {
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
   try {
     await fs.access(absolutePath);
     return { success: true, path: absolutePath };
-  } catch (error: any) {
+  } catch (error) {
     logger.error('文件不存在:', error.message);
     return { success: false, error: error.message, path: absolutePath };
   }
 }
 
-function checkFileSize(fileSize: number, maxSize = 50 * 1024 * 1024) {
+function checkFileSize(fileSize, maxSize = 50 * 1024 * 1024) {
   if (fileSize > maxSize) {
     return { success: false, error: '文件大小超过限制', fileSize, maxSize };
   }
   return { success: true };
 }
 
-async function handleSendFile(filePath: string, userId: string) {
+async function handleSendFile(filePath, userId) {
   logger.file('处理文件发送:', filePath);
   const validation = await validateFile(filePath);
   if (!validation.success) {
@@ -468,17 +468,17 @@ async function handleSendFile(filePath: string, userId: string) {
     await weixinClient.sendImage(userId, validation.path);
     logger.success('文件已发送:', fileName);
     return { success: true, message: '文件上传并发送成功', data: { fileName, filePath: validation.path, fileSize: stats.size, fileType: ext } };
-  } catch (error: any) {
+  } catch (error) {
     logger.error('文件发送失败:', error.message);
     return { success: false, message: '文件发送失败', error: error.message };
   }
 }
 
-async function isDirectory(dirPath: string): Promise<boolean> {
+async function isDirectory(dirPath) {
   try {
     const stat = await fs.stat(dirPath);
     return stat.isDirectory();
-  } catch (err: any) {
+  } catch (err) {
     if (err.code === 'ENOENT') return false;
     throw err;
   }
@@ -506,7 +506,7 @@ function createMcpServer() {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           isError: !result.success,
         };
-      } catch (error: any) {
+      } catch (error) {
         logger.error('工具调用失败:', error);
         throw error;
       }
@@ -536,7 +536,7 @@ function createSessionTransport() {
   return { transport: transportInstance, server: mcpServer, sessionId };
 }
 
-function closeSession(sessionId: string) {
+function closeSession(sessionId) {
   if (!transports[sessionId]) return;
   logger.session('关闭:', sessionId);
   const { server, transport } = transports[sessionId];
@@ -555,7 +555,7 @@ async function closeAllSessions() {
     sessionIds.map(async (sessionId) => {
       try {
         closeSession(sessionId);
-      } catch (error: any) {
+      } catch (error) {
         logger.error('关闭会话失败:', sessionId, error);
       }
     }),
@@ -564,7 +564,7 @@ async function closeAllSessions() {
 }
 
 // ==================== HTTP 请求处理 ====================
-const serverRequestHandler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
+const serverRequestHandler = async (req, res) => {
   let body = '';
   try {
     for await (const chunk of req) {
@@ -588,7 +588,7 @@ const serverRequestHandler = async (req: http.IncomingMessage, res: http.ServerR
       res.setHeader('mcp-session-id', session.sessionId);
     }
     await session.transport.handleRequest(req, res, req.body);
-  } catch (error: any) {
+  } catch (error) {
     logger.error('请求失败:', error.message);
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -604,13 +604,13 @@ const serverRequestHandler = async (req: http.IncomingMessage, res: http.ServerR
 };
 
 // ==================== 消息处理业务 ====================
-async function handleCommandMessage(content: string, fromUserId: string) {
+async function handleCommandMessage(content, fromUserId) {
   if (content === '/clear') {
     const clearPath = CONFIG.qwen.path + '/projects/' + CONFIG.qwen.workspace.replaceAll('/.', '--').replaceAll('/', '-');
     try {
       await fs.rmdir(clearPath, { recursive: true });
       logger.clean('已完成:', clearPath);
-    } catch (error: any) {
+    } catch (error) {
       logger.error('清理失败:', error);
     } finally {
       await weixinClient.sendText(fromUserId, '会话已重置');
@@ -620,7 +620,7 @@ async function handleCommandMessage(content: string, fromUserId: string) {
   return false;
 }
 
-function executeQwenCommand(content: string, fromUserId: string) {
+function executeQwenCommand(content, fromUserId) {
   let responseText = '';
   content = `[全局参数：微信 ID=${fromUserId}] ${content}`;
   logger.message('执行 Qwen 命令:', content);
@@ -646,9 +646,9 @@ function executeQwenCommand(content: string, fromUserId: string) {
   });
 }
 
-async function handleTextMessage(msg: any) {
+async function handleTextMessage(msg) {
   const fromUserId = msg.from_user_id;
-  const text = msg.item_list?.find((item: any) => item.type === MessageItemType.TEXT)?.text_item?.text || '';
+  const text = msg.item_list?.find((item) => item.type === MessageItemType.TEXT)?.text_item?.text || '';
   logger.message('收到文本消息:', fromUserId, text.substring(0, 50));
 
   const isCommand = await handleCommandMessage(text, fromUserId);
@@ -657,9 +657,9 @@ async function handleTextMessage(msg: any) {
   }
 }
 
-async function handleImageMessage(msg: any) {
+async function handleImageMessage(msg) {
   const fromUserId = msg.from_user_id;
-  const imageItem = msg.item_list?.find((item: any) => item.type === MessageItemType.IMAGE);
+  const imageItem = msg.item_list?.find((item) => item.type === MessageItemType.IMAGE);
   if (!imageItem) return;
 
   const media = imageItem.image_item?.media;
@@ -667,17 +667,17 @@ async function handleImageMessage(msg: any) {
 
   logger.message('收到图片消息:', fromUserId);
   try {
-    const buffer = await weixinClient.downloadAndDecryptMedia(media.encrypt_query_param!, media.aes_key!);
+    const buffer = await weixinClient.downloadAndDecryptMedia(media.encrypt_query_param, media.aes_key);
     const filename = `image_${Date.now()}.jpg`;
     const savePath = path.join(CONFIG.qwen.workspace, filename);
     await fs.writeFile(savePath, buffer);
     executeQwenCommand(`@${savePath} 我保存了这张图片，稍后可能会让你协助处理它`, fromUserId);
-  } catch (error: any) {
+  } catch (error) {
     logger.error('下载图片失败:', error.message);
   }
 }
 
-async function handleEnterChat(fromUserId: string) {
+async function handleEnterChat(fromUserId) {
   await weixinClient.sendText(fromUserId, '你好，我是 Mac 智能助手，有什么可以帮你的吗？');
 }
 
@@ -695,7 +695,7 @@ async function gracefulShutdown() {
       logger.server('强制退出');
       process.exit(0);
     }, 5000);
-  } catch (error: any) {
+  } catch (error) {
     logger.error('关闭失败:', error);
     process.exit(1);
   }
@@ -717,8 +717,8 @@ async function startWeixinPolling() {
     logger.weixin('开始轮询消息...');
     await weixinClient.pollMessages(async (msg) => {
       const fromUserId = msg.from_user_id;
-      const text = msg.item_list?.find((item: any) => item.type === MessageItemType.TEXT)?.text_item?.text || '';
-      const hasImage = msg.item_list?.some((item: any) => item.type === MessageItemType.IMAGE);
+      const text = msg.item_list?.find((item) => item.type === MessageItemType.TEXT)?.text_item?.text || '';
+      const hasImage = msg.item_list?.some((item) => item.type === MessageItemType.IMAGE);
 
       if (text) {
         await handleTextMessage(msg);
@@ -727,7 +727,7 @@ async function startWeixinPolling() {
         await handleImageMessage(msg);
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     logger.error('微信轮询错误:', error.message);
     setTimeout(startWeixinPolling, 5000);
   }
