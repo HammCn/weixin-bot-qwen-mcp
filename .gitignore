@@ -1,0 +1,5 @@
+node_modules
+*.log
+weixin-bot-state.json
+.env
+.DS_Store

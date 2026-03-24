@@ -1,0 +1,30 @@
+{
+  "name": "weixin-bot-qwen-mcp",
+  "version": "1.0.0",
+  "description": "微信机器人 + QwenCode + MCP Server 集成服务",
+  "private": true,
+  "type": "module",
+  "main": "weixin-bot.js",
+  "scripts": {
+    "start": "node weixin-bot.js",
+    "dev": "node --watch weixin-bot.js",
+    "check": "tsc --noEmit"
+  },
+  "keywords": [
+    "weixin",
+    "bot",
+    "qwen",
+    "mcp"
+  ],
+  "author": "Hamm",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  }
+}
