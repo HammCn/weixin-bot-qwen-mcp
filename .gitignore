@@ -3,3 +3,6 @@ node_modules
 weixin-bot-state.json
 .env
 .DS_Store
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
