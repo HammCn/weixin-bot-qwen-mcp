@@ -1,6 +1,6 @@
 # 微信机器人 + QwenCode + MCP Server
 
-将企业微信对接改为微信对接的智能助手服务。
+使用 `Qwen-Code` 和微信对接的智能助手服务。
 
 ## 🎉 企业微信
 
@@ -20,7 +20,6 @@
 ### 1. 安装依赖
 
 ```bash
-cd examples/ts/weixin-bot
 npm install
 ```
 
